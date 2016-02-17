@@ -1,79 +1,102 @@
-#define GLFW_INCLUDE_GL3
-#define GLFW_NO_GLU
-
-#ifdef __APPLE__
-#include <OpenGL/gl3ext.h>
-#else
-#include <GL/glew.h>
-#endif
-
-#include <GLFW/glfw3.h>
+#include <OpenGL/gl.h>
+#include <OpenGL/glu.h>
+#include <GLUT/glut.h>
 
 #include <stdlib.h>
 #include <iostream>
 
-static void glfw_error_callback(int error, const char *desc) {
-  std::cerr << desc << std::endl;
+void init() {
+  glClearColor(1.0, 1.0, 1.0, 0.0);
+  glMatrixMode(GL_PROJECTION);
+  glLoadIdentity();
+  glOrtho(0.0, 1.0, 0.0, 1.0, -1.0, 1.0);
 }
 
-static void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods) {
-  if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
-    glfwSetWindowShouldClose(window, GL_TRUE);
-  }
+void opengl_wake() {
+  glColor3f(0.0, 0.0, 0.0);
+
+  // W
+  glBegin(GL_LINE_STRIP);
+    glVertex2f(0.54, 0.75);
+    glVertex2f(0.58, 0.25);
+    glVertex2f(0.62, 0.55);
+    glVertex2f(0.66, 0.25);
+    glVertex2f(0.70, 0.75);
+  glEnd();
+
+  // A
+  glBegin(GL_LINE_STRIP);
+    glVertex2f(0.70, 0.25);
+    glVertex2f(0.74, 0.75);
+    glVertex2f(0.78, 0.25);
+  glEnd();
+  glBegin(GL_LINES);
+    glVertex2f(0.72, 0.50);
+    glVertex2f(0.76, 0.50);
+  glEnd();
+
+  // K
+  glBegin(GL_LINES);
+    glVertex2f(0.80, 0.75);
+    glVertex2f(0.80, 0.25);
+  glEnd();
+  glBegin(GL_LINE_STRIP);
+    glVertex2f(0.88, 0.75);
+    glVertex2f(0.80, 0.50);
+    glVertex2f(0.88, 0.25);
+  glEnd();
+
+  // E
+  glBegin(GL_LINE_STRIP);
+    glVertex2f(0.96, 0.75);
+    glVertex2f(0.90, 0.75);
+    glVertex2f(0.90, 0.25);
+    glVertex2f(0.96, 0.25);
+  glEnd();
+  glBegin(GL_LINES);
+    glVertex2f(0.90, 0.50);
+    glVertex2f(0.96, 0.50);
+  glEnd();
+
 }
 
-int main(void) {
-  // Initialize GLFW
-  if (!glfwInit()) {
-    std::cerr << "Failure to initialize GLFW.\n";
-    exit(EXIT_FAILURE);
-  }
+void display() {
+  //Clear all pixels
+  glClear(GL_COLOR_BUFFER_BIT);
 
-  // Set some configs for the window
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
-  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-  glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+  // Draw the versions of wake
+  // brensenham_wake();
+  opengl_wake();
 
-  glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
+  glFlush();
+}
 
-  glfwSetErrorCallback(glfw_error_callback);
+void reshape(int w, int h) {
+  glViewport(0, 0, (GLsizei) w, (GLsizei) h);
+  glMatrixMode(GL_PROJECTION);
+  glLoadIdentity();
+  glOrtho(0.0, 1.0, 0.0, 1.0, -1.0, 1.0);
+}
 
-  // Create the main window and set callbacks
-  GLFWwindow *window = glfwCreateWindow(800, 600, "OpenGL", nullptr, nullptr);
-  glfwSetKeyCallback(window, key_callback);
+int main(int argc, char *argv[]) {
+  glutInit(&argc, argv);
+  //Set Display Mode
+  glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB);
+  //Set the window size
+  glutInitWindowSize(640, 480);
+  //Set the window position
+  glutInitWindowPosition(100, 100);
+  //Create the window
+  glutCreateWindow("CS 460");
+  init();
 
-  #ifndef __APPLE__
-  GLenum err = glewInit();
+  //Call "display" function
+  glutDisplayFunc(display);
+  // glutReshapeFunc(reshape);
 
-  if (GLEW_OK != err) {
-    std::cerr << "GLEW could not start\n";
-  }
-  #endif
+  //Enter the GLUT event loop
+  glutMainLoop();
 
-  GLuint vertexBuffer;
-  glGenBuffers(1, &vertexBuffer);
-  std::cout << vertexBuffer << std::endl;
-
-  if (!window) {
-    glfwTerminate();
-    std::cerr << "Failure to initialize window.\n";
-    exit(EXIT_FAILURE);
-  }
-
-  glfwMakeContextCurrent(window);
-
-  while(!glfwWindowShouldClose(window)) {
-    // Render
-
-    // Swap front and back buffers
-    glfwSwapBuffers(window);
-
-    // Poll for events
-    glfwPollEvents();
-  }
-
-  glfwDestroyWindow(window);
-  glfwTerminate();
   return 0;
 }
+
