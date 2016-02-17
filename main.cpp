@@ -57,7 +57,46 @@ void opengl_wake() {
     glVertex2f(0.90, 0.50);
     glVertex2f(0.96, 0.50);
   glEnd();
+}
 
+void brensenham_line(float x0, float y0, float x1, float y1) {
+  // TODO
+  // plotLine(x0,y0, x1,y1)
+  //   dx = x1 - x0
+  //   dy = y1 - y0
+
+  //   D = 2*dy - dx
+  //   plot(x0,y0)
+  //   y = y0
+  //   if D > 0
+  //            y = y+1
+  //            D = D - (2*dx)
+  //            for x from x0+1 to x1
+  //                    plot(x,y)
+  //                    D = D + (2*dy)
+  //                    if D > 0
+  //                             y = y+1
+  //                             D = D - (2*dx)
+  int dx = x1 - x0;
+  int dy = y1 - y0;
+  int y = y0;
+  int decider = 2*dy - dx;
+
+  glBegin(GL_POINTS);
+  glVertex2f(x0, y0);
+  if (decider > 0) {
+    y++;
+    decider -= 2*dx;
+  }
+  for (int x = x0+1; x < x1; x++) {
+    glVertex2f(x, y);
+    decider += 2*dy;
+    if (decider > 0) {
+      y++;
+      decider -= 2*dx;
+    }
+  }
+  glEnd();
 }
 
 void display() {
