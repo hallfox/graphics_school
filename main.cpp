@@ -4,79 +4,25 @@
 
 #include <stdlib.h>
 #include <iostream>
+#include "draw.h"
+
+enum Renderer { RENDER_OPENGL, RENDER_BRENSENHAM, RENDER_MIDPOINT };
+
+// TODO make all the states for the mode
+static Renderer renderer = RENDER_OPENGL;
+static Painter painter;
 
 void init() {
   glClearColor(1.0, 1.0, 1.0, 0.0);
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
   glOrtho(0.0, 1.0, 0.0, 1.0, -1.0, 1.0);
+  painter = Painter();
+  renderer = RENDER_OPENGL;
+  std::cout << "Using renderer " << renderer << std::endl;
 }
 
-void opengl_wake() {
-  glColor3f(0.0, 0.0, 0.0);
-
-  // W
-  glBegin(GL_LINE_STRIP);
-    glVertex2f(0.54, 0.75);
-    glVertex2f(0.58, 0.25);
-    glVertex2f(0.62, 0.55);
-    glVertex2f(0.66, 0.25);
-    glVertex2f(0.70, 0.75);
-  glEnd();
-
-  // A
-  glBegin(GL_LINE_STRIP);
-    glVertex2f(0.70, 0.25);
-    glVertex2f(0.74, 0.75);
-    glVertex2f(0.78, 0.25);
-  glEnd();
-  glBegin(GL_LINES);
-    glVertex2f(0.72, 0.50);
-    glVertex2f(0.76, 0.50);
-  glEnd();
-
-  // K
-  glBegin(GL_LINES);
-    glVertex2f(0.80, 0.75);
-    glVertex2f(0.80, 0.25);
-  glEnd();
-  glBegin(GL_LINE_STRIP);
-    glVertex2f(0.88, 0.75);
-    glVertex2f(0.80, 0.50);
-    glVertex2f(0.88, 0.25);
-  glEnd();
-
-  // E
-  glBegin(GL_LINE_STRIP);
-    glVertex2f(0.96, 0.75);
-    glVertex2f(0.90, 0.75);
-    glVertex2f(0.90, 0.25);
-    glVertex2f(0.96, 0.25);
-  glEnd();
-  glBegin(GL_LINES);
-    glVertex2f(0.90, 0.50);
-    glVertex2f(0.96, 0.50);
-  glEnd();
-}
-
-void brensenham_line(float x0, float y0, float x1, float y1) {
-  // TODO
-  // plotLine(x0,y0, x1,y1)
-  //   dx = x1 - x0
-  //   dy = y1 - y0
-
-  //   D = 2*dy - dx
-  //   plot(x0,y0)
-  //   y = y0
-  //   if D > 0
-  //            y = y+1
-  //            D = D - (2*dx)
-  //            for x from x0+1 to x1
-  //                    plot(x,y)
-  //                    D = D + (2*dy)
-  //                    if D > 0
-  //                             y = y+1
-  //                             D = D - (2*dx)
+void brensenham_line(int x0, int y0, int x1, int y1) {
   int dx = x1 - x0;
   int dy = y1 - y0;
   int y = y0;
@@ -99,15 +45,60 @@ void brensenham_line(float x0, float y0, float x1, float y1) {
   glEnd();
 }
 
+void draw_user_points() {
+  switch (renderer) {
+  case RENDER_OPENGL:
+    for (const auto &drawing: painter.get_drawings()) {
+      glBegin(GL_LINE_STRIP);
+      for (const auto &p: drawing->get_points()) {
+        glVertex2i(p.first, p.second);
+      }
+      glEnd();
+    }
+    break;
+  default:
+    break;
+  }
+}
+
 void display() {
   //Clear all pixels
   glClear(GL_COLOR_BUFFER_BIT);
 
   // Draw the versions of wake
   // brensenham_wake();
-  opengl_wake();
+  // opengl_wake();
+  draw_user_points();
 
   glFlush();
+}
+
+void mouse_handler(int button, int state, int x, int y) {
+  // NOTE x and y are relative to the top left of the window,
+  // they will be transformed before they go into the user list
+  int height = glutGet(GLUT_WINDOW_HEIGHT);
+  auto pt = std::make_pair(x, height - y);
+  if (!painter.is_drawing()) {
+    // Go into drawing mode
+    if (button == GLUT_LEFT_BUTTON && state == GLUT_UP) {
+      std::cout << "Starting drawing at: " << pt.first << ", " << pt.second << std::endl;
+      painter.start_drawing(pt);
+    }
+  }
+  else {
+    // TODO
+    // Things you can do in drawing mode:
+    // - left click to add new point
+    // - right click to stop drawing
+    if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
+      std::cout << "Adding new point: " << pt.first << ", " << pt.second << std::endl;
+      painter.get_current_drawing().add_point(pt);
+    }
+    else if (button == GLUT_RIGHT_BUTTON && state == GLUT_UP) {
+      std::cout << "Drawing ended.\n";
+      painter.stop_drawing();
+    }
+  }
 }
 
 void reshape(int w, int h) {
@@ -131,7 +122,8 @@ int main(int argc, char *argv[]) {
 
   //Call "display" function
   glutDisplayFunc(display);
-  // glutReshapeFunc(reshape);
+  glutReshapeFunc(reshape);
+  glutMouseFunc(mouse_handler);
 
   //Enter the GLUT event loop
   glutMainLoop();
