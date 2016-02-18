@@ -192,7 +192,6 @@ void midpoint_line(int x0, int y0, int x1, int y1) {
   for (int x = x0; x <= x1; x++) {
     t = bren_switch_output(octant, x, y);
     glVertex2i(t.first, t.second);
-    decider += 2*dy;
     if (decider > 0) {
       decider += inc_ne;
       y++;
