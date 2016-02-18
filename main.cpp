@@ -347,7 +347,7 @@ void reshape(int w, int h) {
 }
 
 void toggle_mimic() {
-  if (mimic_enabled) {
+  if (!mimic_enabled) {
     std::cout << "Mimic enabled\n";
   }
   else {

@@ -1,0 +1,86 @@
+#+LATEX_CLASS: article
+#+LATEX_CLASS_OPTIONS:
+#+LATEX_HEADER:
+#+LATEX_HEADER_EXTRA:
+#+DESCRIPTION:
+#+KEYWORDS:
+#+OPTIONS: toc:nil
+#+SUBTITLE:
+#+AUTHOR: Taylor Foxhall
+#+TITLE: Simple Line Drawing Algorithms
+#+DATE: \today
+
+* Introduction
+  In the field of computer graphics, there are two well-known algorithms used for drawing lines. We will compare
+  Brensenham's algorithm, the midpoint line algorithm, and OpenGL's implementation of line drawing.
+* Brensenham Line Drawing
+** Idea 
+   Brensenham's algorithm chooses which pixel to draw based on an accumulated error. Assuming we're trying to draw
+   a line that is in the first octant of a graph, we can draw horizontally unless our error crosses a certain threshold,
+   then we increment y and subtract the accumulated error. Other lines in other octants can be handled by a simple
+   transformation (not shown below, but is included in the [[file:main.cpp::95][source file]].)
+** Code Exposé
+  #+BEGIN_SRC C++
+    void brensenham_line(int x0, int y0, int x1, int y1) {
+      int dx = x1 - x0;
+      int dy = y1 - y0;
+      int y = y0;
+      int decider = 2*dy - dx;
+
+      glBegin(GL_POINTS);
+      for (int x = x0; x <= x1; x++) {
+        glVertex2i(x, y);
+        decider += 2*dy;
+        if (decider > 0) {
+          y++;
+          decider -= 2*dx;
+        }
+      }
+      glEnd();
+    }
+  #+END_SRC 
+** Demos
+   #+CAPTION: A simple drawing using Brensenham's algorithm
+   [[./img/a1_bren_basic.png]]
+   #+CAPTION: Line stippling with Brensenham's algorithm
+   [[./img/a1_bren_stipple.png]]
+   #+CAPTION: "WAKE" drawn with Brensenham's algorithm (left) vs. OpenGL's lines (right)
+   [[./img/a1_wake.png]]
+* Midpoint Line Drawing
+** Idea
+   This algorithm tries to improve upon Brensenham by substituting the error accumulator
+   for an approximation of the line function and compares it with its location of the
+   midpoint of the eastern pixel and the northeastern pixel. The algorithm fills in
+   whatever pixel is closer to the approximation. The octant switching in Brensenham's
+   algorithm still applies.
+** Code Exposé
+   #+BEGIN_SRC C++
+     void midpoint_line(int x0, int y0, int x1, int y1) {
+       int dx = x1 - x0;
+       int dy = y1 - y0;
+       int y = y0;
+       int decider = 2*dy - dx;
+       int inc_e = 2*dy;
+       int inc_ne = 2*(dy - dx);
+
+       glBegin(GL_POINTS);
+       for (int x = x0; x <= x1; x++) {
+           glVertex2i(x, y);
+         if (decider > 0) {
+           decider += inc_ne;
+           y++;
+         }
+         else {
+           decider += inc_e;
+         }
+       }
+       glEnd();
+     }
+   #+END_SRC
+** Demos
+   #+CAPTION: A simple drawing using the Midpoint algorithm
+   [[./img/a1_midpt_basic.png]]
+   #+CAPTION: Line stippling with the Midpoint algorithm
+   [[./img/a1_midpt_stipple.png]]
+   #+CAPTION: A coordinate system drawn with the Midpoint algorithm
+   [[./img/a1_coord.png]]
