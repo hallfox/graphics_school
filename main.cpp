@@ -38,6 +38,7 @@ void log_renderer() {
 void init() {
   glClearColor(1.0, 1.0, 1.0, 0.0);
   glShadeModel(GL_FLAT);
+  glLineWidth(2);
   // glMatrixMode(GL_PROJECTION);
   // glLoadIdentity();
   // int w = glutGet(GLUT_WINDOW_WIDTH);
@@ -92,10 +93,7 @@ Point2d bren_switch_output(int octant, int x, int y) {
   return std::make_pair(x, y);
 }
 
-void brensenham_line(int x0, int y0, int x1, int y1) {
-  int w = x1 - x0;
-  int h = y1 - y0;
-
+int get_octant(int w, int h) {
   // Determine Octant
   int octant = 0;
   if (w > 0) {
@@ -140,6 +138,11 @@ void brensenham_line(int x0, int y0, int x1, int y1) {
       }
     }
   }
+  return octant;
+}
+
+void brensenham_line(int x0, int y0, int x1, int y1) {
+  int octant = get_octant(x1-x0, y1-y0);
 
   Point2d t = bren_switch_input(octant, x0, y0);
   x0 = t.first;
@@ -153,21 +156,49 @@ void brensenham_line(int x0, int y0, int x1, int y1) {
   int dy = y1 - y0;
   int y = y0;
   int decider = 2*dy - dx;
-  t = bren_switch_output(octant, x0, y0);
 
   glBegin(GL_POINTS);
-  glVertex2i(t.first, t.second);
-  if (decider > 0) {
-    y++;
-    decider -= 2*dx;
-  }
-  for (int x = x0+1; x < x1; x++) {
+  for (int x = x0; x <= x1; x++) {
     t = bren_switch_output(octant, x, y);
     glVertex2i(t.first, t.second);
     decider += 2*dy;
     if (decider > 0) {
       y++;
       decider -= 2*dx;
+    }
+  }
+  glEnd();
+}
+
+void midpoint_line(int x0, int y0, int x1, int y1) {
+  int octant = get_octant(x1-x0, y1-y0);
+
+  Point2d t = bren_switch_input(octant, x0, y0);
+  x0 = t.first;
+  y0 = t.second;
+
+  t = bren_switch_input(octant, x1, y1);
+  x1 = t.first;
+  y1 = t.second;
+
+  int dx = x1 - x0;
+  int dy = y1 - y0;
+  int y = y0;
+  int decider = 2*dy - dx;
+  int inc_e = 2*dy;
+  int inc_ne = 2*(dy - dx);
+
+  glBegin(GL_POINTS);
+  for (int x = x0; x <= x1; x++) {
+    t = bren_switch_output(octant, x, y);
+    glVertex2i(t.first, t.second);
+    decider += 2*dy;
+    if (decider > 0) {
+      decider += inc_ne;
+      y++;
+    }
+    else {
+      decider += inc_e;
     }
   }
   glEnd();
@@ -188,6 +219,7 @@ void draw_user_points() {
     }
     break;
   case RENDER_BRENSENHAM:
+  case RENDER_MIDPOINT:
     for (auto& drawing: drawings) {
       if (drawing.get_points().size() > 1) {
         int x_prev, y_prev;
@@ -199,7 +231,12 @@ void draw_user_points() {
             first = false;
           }
           else {
-            brensenham_line(x_prev, y_prev, p.first, p.second);
+            if (renderer == RENDER_BRENSENHAM) {
+              brensenham_line(x_prev, y_prev, p.first, p.second);
+            }
+            else {
+              midpoint_line(x_prev, y_prev, p.first, p.second);
+            }
             x_prev = p.first;
             y_prev = p.second;
           }
@@ -242,6 +279,9 @@ void draw_stalker_line() {
     break;
   case RENDER_BRENSENHAM:
     brensenham_line(last_pt.first, last_pt.second, brush.first, brush.second);
+    break;
+  case RENDER_MIDPOINT:
+    midpoint_line(last_pt.first, last_pt.second, brush.first, brush.second);
     break;
   default:
     break;
@@ -329,7 +369,7 @@ void toggle_renderer() {
     renderer = RENDER_BRENSENHAM;
     break;
   case RENDER_BRENSENHAM:
-    renderer = RENDER_OPENGL;
+    renderer = RENDER_MIDPOINT;
     break;
   case RENDER_MIDPOINT:
     // TODO add support for MIDPOINT
