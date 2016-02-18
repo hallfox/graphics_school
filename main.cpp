@@ -6,11 +6,34 @@
 #include <iostream>
 #include "draw.h"
 
-enum Renderer { RENDER_OPENGL, RENDER_BRENSENHAM, RENDER_MIDPOINT };
+#define RENDER_COUNT 3
+enum Renderer { RENDER_OPENGL = 0, RENDER_BRENSENHAM, RENDER_MIDPOINT };
 
 // TODO make all the states for the mode
-static Renderer renderer = RENDER_OPENGL;
-static Painter painter;
+namespace {
+  Renderer renderer = RENDER_OPENGL;
+  Painter painter;
+  bool stipple_enabled = false;
+  bool mimic_enabled = false;
+}
+
+void log_renderer() {
+  std::cout << "Using renderer ";
+  switch (renderer) {
+  case RENDER_OPENGL:
+    std::cout << "OpenGL";
+    break;
+  case RENDER_BRENSENHAM:
+    std::cout << "Brensenham";
+    break;
+  case RENDER_MIDPOINT:
+    std::cout << "Midpoint";
+    break;
+  default:
+    std::cout << "Unknown";
+  }
+  std::cout << std::endl;
+}
 
 void init() {
   glClearColor(1.0, 1.0, 1.0, 0.0);
@@ -21,8 +44,8 @@ void init() {
   // int h = glutGet(GLUT_WINDOW_HEIGHT);
   // glOrtho(0.0, 1.0, 0.0, 1.0, -1.0, 1.0);
   painter = Painter();
-  renderer = RENDER_BRENSENHAM;
-  std::cout << "Using renderer " << renderer << std::endl;
+  renderer = RENDER_OPENGL;
+  log_renderer();
 }
 
 Point2d bren_switch_input(int octant, int x, int y) {
@@ -187,6 +210,20 @@ void draw_user_points() {
   default:
     break;
   }
+
+  // Translate the user's drawings and draw with OpenGL if the mimic is turned on
+  if (mimic_enabled) {
+    int width = glutGet(GLUT_WINDOW_WIDTH);
+    for (auto& drawing: drawings) {
+      glBegin(GL_LINE_STRIP);
+      if (drawing.get_points().size() > 1) {
+        for (const auto& p: drawing.get_points()) {
+          glVertex2i(p.first + width/2, p.second);
+        }
+      }
+      glEnd();
+    }
+  }
 }
 
 void draw_stalker_line() {
@@ -235,7 +272,6 @@ void mouse_handler(int button, int state, int x, int y) {
     }
   }
   else {
-    // TODO
     // Things you can do in drawing mode:
     // - left click to add new point
     // - right click to stop drawing
@@ -263,6 +299,64 @@ void reshape(int w, int h) {
   gluOrtho2D(0.0, (GLdouble) w, 0.0, (GLdouble) h);
 }
 
+void toggle_mimic() {
+  if (mimic_enabled) {
+    std::cout << "Mimic enabled\n";
+  }
+  else {
+    std::cout << "Mimic disabled\n";
+  }
+  mimic_enabled = !mimic_enabled;
+}
+
+void toggle_stipple() {
+  if (stipple_enabled) {
+    std::cout << "Line stippling enabled\n";
+    stipple_enabled = false;
+    glDisable(GL_LINE_STIPPLE);
+  }
+  else {
+    std::cout << "Line stippling disabled\n";
+    stipple_enabled = true;
+    glLineStipple(1, 0x0101);
+    glEnable(GL_LINE_STIPPLE);
+  }
+}
+
+void toggle_renderer() {
+  switch (renderer) {
+  case RENDER_OPENGL:
+    renderer = RENDER_BRENSENHAM;
+    break;
+  case RENDER_BRENSENHAM:
+    renderer = RENDER_OPENGL;
+    break;
+  case RENDER_MIDPOINT:
+    // TODO add support for MIDPOINT
+    renderer = RENDER_OPENGL;
+    break;
+  }
+
+  log_renderer();
+}
+
+void keyboard_handler(unsigned char key, int x, int y) {
+  switch (key) {
+  case 27: // ESC
+    exit(0);
+    break;
+  case 'm':
+    toggle_mimic();
+    break;
+  case 's':
+    toggle_stipple();
+    break;
+  case 'r':
+    toggle_renderer();
+    break;
+  }
+}
+
 int main(int argc, char *argv[]) {
   glutInit(&argc, argv);
   //Set Display Mode
@@ -281,6 +375,7 @@ int main(int argc, char *argv[]) {
   glutMouseFunc(mouse_handler);
   glutMotionFunc(mouse_motion_handler);
   glutPassiveMotionFunc(mouse_motion_handler);
+  glutKeyboardFunc(keyboard_handler);
 
   //Enter the GLUT event loop
   glutMainLoop();
