@@ -5,4 +5,5 @@ Controls:
 - *m* toggle the mimic (mirror your drawings with OpenGL)
 - *s* toggle line stipple
 - *r* toggle renderer (OpenGL, Brensenham, Midpoint)
+- *u* undo the last drawing
 - *ESC* take a good guess

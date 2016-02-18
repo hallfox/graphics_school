@@ -38,7 +38,6 @@ void log_renderer() {
 void init() {
   glClearColor(1.0, 1.0, 1.0, 0.0);
   glShadeModel(GL_FLAT);
-  glLineWidth(2);
   // glMatrixMode(GL_PROJECTION);
   // glLoadIdentity();
   // int w = glutGet(GLUT_WINDOW_WIDTH);
@@ -49,7 +48,7 @@ void init() {
   log_renderer();
 }
 
-Point2d bren_switch_input(int octant, int x, int y) {
+Point2d switch_input(int octant, int x, int y) {
   switch (octant) {
   case 0:
     return std::make_pair(x, y);
@@ -71,7 +70,7 @@ Point2d bren_switch_input(int octant, int x, int y) {
   return std::make_pair(x, y);
 }
 
-Point2d bren_switch_output(int octant, int x, int y) {
+Point2d switch_output(int octant, int x, int y) {
   switch (octant) {
   case 0:
     return std::make_pair(x, y);
@@ -144,11 +143,11 @@ int get_octant(int w, int h) {
 void brensenham_line(int x0, int y0, int x1, int y1) {
   int octant = get_octant(x1-x0, y1-y0);
 
-  Point2d t = bren_switch_input(octant, x0, y0);
+  Point2d t = switch_input(octant, x0, y0);
   x0 = t.first;
   y0 = t.second;
 
-  t = bren_switch_input(octant, x1, y1);
+  t = switch_input(octant, x1, y1);
   x1 = t.first;
   y1 = t.second;
 
@@ -156,11 +155,16 @@ void brensenham_line(int x0, int y0, int x1, int y1) {
   int dy = y1 - y0;
   int y = y0;
   int decider = 2*dy - dx;
+  unsigned short pattern = 0xDEAD;
+  int p = 0;
 
   glBegin(GL_POINTS);
   for (int x = x0; x <= x1; x++) {
-    t = bren_switch_output(octant, x, y);
-    glVertex2i(t.first, t.second);
+    if (!stipple_enabled || (pattern >> p) & 1) {
+      t = switch_output(octant, x, y);
+      glVertex2i(t.first, t.second);
+    }
+    p = (p + 1) % 16;
     decider += 2*dy;
     if (decider > 0) {
       y++;
@@ -173,11 +177,11 @@ void brensenham_line(int x0, int y0, int x1, int y1) {
 void midpoint_line(int x0, int y0, int x1, int y1) {
   int octant = get_octant(x1-x0, y1-y0);
 
-  Point2d t = bren_switch_input(octant, x0, y0);
+  Point2d t = switch_input(octant, x0, y0);
   x0 = t.first;
   y0 = t.second;
 
-  t = bren_switch_input(octant, x1, y1);
+  t = switch_input(octant, x1, y1);
   x1 = t.first;
   y1 = t.second;
 
@@ -187,11 +191,16 @@ void midpoint_line(int x0, int y0, int x1, int y1) {
   int decider = 2*dy - dx;
   int inc_e = 2*dy;
   int inc_ne = 2*(dy - dx);
+  unsigned short pattern = 0xBEEF;
+  int p = 0;
 
   glBegin(GL_POINTS);
   for (int x = x0; x <= x1; x++) {
-    t = bren_switch_output(octant, x, y);
-    glVertex2i(t.first, t.second);
+    if (!stipple_enabled || (pattern >> p) & 1) {
+      t = switch_output(octant, x, y);
+      glVertex2i(t.first, t.second);
+    }
+    p = (p + 1) % 16;
     if (decider > 0) {
       decider += inc_ne;
       y++;
@@ -328,7 +337,6 @@ void mouse_handler(int button, int state, int x, int y) {
 void mouse_motion_handler(int x, int y) {
   int h = glutGet(GLUT_WINDOW_HEIGHT);
   painter.set_brush(std::make_pair(x, h - y));
-  glutPostRedisplay();
 }
 
 void reshape(int w, int h) {
@@ -357,7 +365,7 @@ void toggle_stipple() {
   else {
     std::cout << "Line stippling disabled\n";
     stipple_enabled = true;
-    glLineStipple(1, 0x0101);
+    glLineStipple(1, 0xDEAF);
     glEnable(GL_LINE_STIPPLE);
   }
 }
@@ -371,7 +379,6 @@ void toggle_renderer() {
     renderer = RENDER_MIDPOINT;
     break;
   case RENDER_MIDPOINT:
-    // TODO add support for MIDPOINT
     renderer = RENDER_OPENGL;
     break;
   }
@@ -392,6 +399,11 @@ void keyboard_handler(unsigned char key, int x, int y) {
     break;
   case 'r':
     toggle_renderer();
+    break;
+  case 'u':
+    if (!painter.is_drawing() && !painter.get_drawings().empty()) {
+      painter.get_drawings().pop_back();
+    }
     break;
   }
 }
