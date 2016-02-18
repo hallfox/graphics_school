@@ -14,28 +14,133 @@ static Painter painter;
 
 void init() {
   glClearColor(1.0, 1.0, 1.0, 0.0);
-  glMatrixMode(GL_PROJECTION);
-  glLoadIdentity();
-  glOrtho(0.0, 1.0, 0.0, 1.0, -1.0, 1.0);
+  glShadeModel(GL_FLAT);
+  // glMatrixMode(GL_PROJECTION);
+  // glLoadIdentity();
+  // int w = glutGet(GLUT_WINDOW_WIDTH);
+  // int h = glutGet(GLUT_WINDOW_HEIGHT);
+  // glOrtho(0.0, 1.0, 0.0, 1.0, -1.0, 1.0);
   painter = Painter();
-  renderer = RENDER_OPENGL;
+  renderer = RENDER_BRENSENHAM;
   std::cout << "Using renderer " << renderer << std::endl;
 }
 
+Point2d bren_switch_input(int octant, int x, int y) {
+  switch (octant) {
+  case 0:
+    return std::make_pair(x, y);
+  case 1:
+    return std::make_pair(y, x);
+  case 2:
+    return std::make_pair(y, -x);
+  case 3:
+    return std::make_pair(-x, y);
+  case 4:
+    return std::make_pair(-x, -y);
+  case 5:
+    return std::make_pair(-y, -x);
+  case 6:
+    return std::make_pair(-y, x);
+  case 7:
+    return std::make_pair(x, -y);
+  }
+  return std::make_pair(x, y);
+}
+
+Point2d bren_switch_output(int octant, int x, int y) {
+  switch (octant) {
+  case 0:
+    return std::make_pair(x, y);
+  case 1:
+    return std::make_pair(y, x);
+  case 2:
+    return std::make_pair(-y, x);
+  case 3:
+    return std::make_pair(-x, y);
+  case 4:
+    return std::make_pair(-x, -y);
+  case 5:
+    return std::make_pair(-y, -x);
+  case 6:
+    return std::make_pair(y, -x);
+  case 7:
+    return std::make_pair(x, -y);
+  }
+  return std::make_pair(x, y);
+}
+
 void brensenham_line(int x0, int y0, int x1, int y1) {
+  int w = x1 - x0;
+  int h = y1 - y0;
+
+  // Determine Octant
+  int octant = 0;
+  if (w > 0) {
+    // Either 0, 1, 6, 7
+    if (h > 0) { // Positive slope
+      // Either 0, 1
+      if (abs(w) >= abs(h)) { // flat
+        octant = 0;
+      }
+      else { // steep
+        octant = 1;
+      }
+    }
+    else { // Negative slope
+      // Either 6, 7
+      if (abs(w) >= abs(h)) {
+        octant = 7;
+      }
+      else {
+        octant = 6;
+      }
+    }
+  }
+  else {
+    // Either 2, 3, 4, 5, 6
+    if (h > 0) {
+      // Either 2, 3
+      if (abs(w) >= abs(h)) {
+        octant = 3;
+      }
+      else {
+        octant = 2;
+      }
+    }
+    else {
+      // Either 4, 5
+      if (abs(w) >= abs(h)) {
+        octant = 4;
+      }
+      else {
+        octant = 5;
+      }
+    }
+  }
+
+  Point2d t = bren_switch_input(octant, x0, y0);
+  x0 = t.first;
+  y0 = t.second;
+
+  t = bren_switch_input(octant, x1, y1);
+  x1 = t.first;
+  y1 = t.second;
+
   int dx = x1 - x0;
   int dy = y1 - y0;
   int y = y0;
   int decider = 2*dy - dx;
+  t = bren_switch_output(octant, x0, y0);
 
   glBegin(GL_POINTS);
-  glVertex2f(x0, y0);
+  glVertex2i(t.first, t.second);
   if (decider > 0) {
     y++;
     decider -= 2*dx;
   }
   for (int x = x0+1; x < x1; x++) {
-    glVertex2f(x, y);
+    t = bren_switch_output(octant, x, y);
+    glVertex2i(t.first, t.second);
     decider += 2*dy;
     if (decider > 0) {
       y++;
@@ -46,15 +151,60 @@ void brensenham_line(int x0, int y0, int x1, int y1) {
 }
 
 void draw_user_points() {
+  auto drawings = painter.get_drawings();
   switch (renderer) {
   case RENDER_OPENGL:
-    for (const auto &drawing: painter.get_drawings()) {
+    for (auto& drawing: drawings) {
       glBegin(GL_LINE_STRIP);
-      for (const auto &p: drawing->get_points()) {
-        glVertex2i(p.first, p.second);
+      if (drawing.get_points().size() > 1) {
+        for (const auto& p: drawing.get_points()) {
+          glVertex2i(p.first, p.second);
+        }
       }
       glEnd();
     }
+    break;
+  case RENDER_BRENSENHAM:
+    for (auto& drawing: drawings) {
+      if (drawing.get_points().size() > 1) {
+        int x_prev, y_prev;
+        bool first = true;
+        for (const auto& p: drawing.get_points()) {
+          if (first) {
+            x_prev = p.first;
+            y_prev = p.second;
+            first = false;
+          }
+          else {
+            brensenham_line(x_prev, y_prev, p.first, p.second);
+            x_prev = p.first;
+            y_prev = p.second;
+          }
+        }
+      }
+    }
+    break;
+  default:
+    break;
+  }
+}
+
+void draw_stalker_line() {
+  if (!painter.is_drawing()) {
+    return;
+  }
+  auto last_pt = painter.get_current_drawing().get_points().back();
+  auto brush = painter.get_brush();
+
+  switch (renderer) {
+  case RENDER_OPENGL:
+    glBegin(GL_LINES);
+    glVertex2i(last_pt.first, last_pt.second);
+    glVertex2i(brush.first, brush.second);
+    glEnd();
+    break;
+  case RENDER_BRENSENHAM:
+    brensenham_line(last_pt.first, last_pt.second, brush.first, brush.second);
     break;
   default:
     break;
@@ -65,12 +215,11 @@ void display() {
   //Clear all pixels
   glClear(GL_COLOR_BUFFER_BIT);
 
-  // Draw the versions of wake
-  // brensenham_wake();
-  // opengl_wake();
+  glColor3f(0.0, 0.0, 0.0);
   draw_user_points();
+  draw_stalker_line();
 
-  glFlush();
+  glutSwapBuffers();
 }
 
 void mouse_handler(int button, int state, int x, int y) {
@@ -101,17 +250,23 @@ void mouse_handler(int button, int state, int x, int y) {
   }
 }
 
+void mouse_motion_handler(int x, int y) {
+  int h = glutGet(GLUT_WINDOW_HEIGHT);
+  painter.set_brush(std::make_pair(x, h - y));
+  glutPostRedisplay();
+}
+
 void reshape(int w, int h) {
   glViewport(0, 0, (GLsizei) w, (GLsizei) h);
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
-  glOrtho(0.0, 1.0, 0.0, 1.0, -1.0, 1.0);
+  gluOrtho2D(0.0, (GLdouble) w, 0.0, (GLdouble) h);
 }
 
 int main(int argc, char *argv[]) {
   glutInit(&argc, argv);
   //Set Display Mode
-  glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB);
+  glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
   //Set the window size
   glutInitWindowSize(640, 480);
   //Set the window position
@@ -120,10 +275,12 @@ int main(int argc, char *argv[]) {
   glutCreateWindow("CS 460");
   init();
 
-  //Call "display" function
   glutDisplayFunc(display);
+  glutIdleFunc(display);
   glutReshapeFunc(reshape);
   glutMouseFunc(mouse_handler);
+  glutMotionFunc(mouse_motion_handler);
+  glutPassiveMotionFunc(mouse_motion_handler);
 
   //Enter the GLUT event loop
   glutMainLoop();

@@ -1,5 +1,4 @@
 #include <list>
-#include <memory>
 
 using Point2d = std::pair<int, int>;
 
@@ -15,12 +14,15 @@ class LineDrawing {
 class Painter {
  public:
   Painter();
-  void start_drawing(Point2d);
+  void start_drawing(Point2d start);
   void stop_drawing() { _is_drawing = false; };
-  LineDrawing& get_current_drawing() { return *_drawings.back(); } // TODO Account for what happens when painter is not drawing
-  std::list<std::unique_ptr<LineDrawing> >& get_drawings() { return _drawings; }
+  LineDrawing& get_current_drawing() { return _drawings.back(); } // TODO Account for what happens when painter is not drawing
+  std::list<LineDrawing>& get_drawings() { return _drawings; }
   bool is_drawing() { return _is_drawing; }
+  Point2d get_brush() { return _brush; }
+  void set_brush(Point2d pt) { _brush = pt; }
  private:
-  std::list<std::unique_ptr<LineDrawing> > _drawings;
+  std::list<LineDrawing> _drawings;
   bool _is_drawing;
+  Point2d _brush;
 };

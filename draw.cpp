@@ -11,13 +11,15 @@ void LineDrawing::add_point(Point2d pt) {
 
 Painter::Painter() {
   _is_drawing = false;
-  _drawings = std::list<std::unique_ptr<LineDrawing> >();
+  _drawings = std::list<LineDrawing>();
+  // FIXME Brensenham draws line from mouse click to here if mouse hasn't been moved
+  _brush = std::make_pair(0, 0);
 }
 
 void Painter::start_drawing(Point2d pt) {
   if (!_is_drawing) {
     _is_drawing = true;
-    _drawings.push_back(std::unique_ptr<LineDrawing>(new LineDrawing(pt)));
+    _drawings.push_back(LineDrawing(pt));
   }
   // TODO Figure out what happens if a Painter tries to start
   // drawing when they already are
