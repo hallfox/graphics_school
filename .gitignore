@@ -32,3 +32,4 @@
 *.app
 
 graphics
+.DS_Store

@@ -9,7 +9,6 @@
 #define RENDER_COUNT 3
 enum Renderer { RENDER_OPENGL = 0, RENDER_BRENSENHAM, RENDER_MIDPOINT };
 
-// TODO make all the states for the mode
 namespace {
   Renderer renderer = RENDER_OPENGL;
   Painter painter;
