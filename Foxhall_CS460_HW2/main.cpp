@@ -8,15 +8,30 @@
 
 namespace {
   Painter painter;
+  std::list<Point2d> clip_window {
+    std::make_pair(150, 150),
+      std::make_pair(400, 150),
+      std::make_pair(400, 400),
+      std::make_pair(150, 400)
+      };
 }
 
 void init() {
   glClearColor(1.0, 1.0, 1.0, 0.0);
+  glLineWidth(2.0);
   glShadeModel(GL_FLAT);
   painter = Painter();
 }
 
-void draw_user_points() {
+void draw_clipping_window() {
+  glLineStipple(1, 0xF0F0);
+  glEnable(GL_LINE_STIPPLE);
+  glBegin(GL_LINE_LOOP);
+  for (auto& pt: clip_window) {
+    glVertex2i(pt.first, pt.second);
+  }
+  glEnd();
+  glDisable(GL_LINE_STIPPLE);
 }
 
 void display() {
@@ -24,6 +39,7 @@ void display() {
   glClear(GL_COLOR_BUFFER_BIT);
 
   glColor3f(0.0, 0.0, 0.0);
+  draw_clipping_window();
   painter.paint();
 
   glutSwapBuffers();
@@ -78,6 +94,18 @@ void keyboard_handler(unsigned char key, int x, int y) {
     if (!painter.is_painting()) {
       painter.undo();
     }
+    break;
+  case 'c':
+    if (!painter.is_painting()) {
+      painter.clip(clip_window);
+    }
+    break;
+  case 'f':
+    if (!painter.is_painting()) {
+      painter.fill();
+    }
+    break;
+  default:
     break;
   }
 }

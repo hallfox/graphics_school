@@ -1,11 +1,19 @@
 #include <list>
 #include <memory>
+#include <functional>
 
 using Point2d = std::pair<int, int>;
+struct Point2dHash {
+  inline std::size_t operator()(const Point2d& p) const {
+    std::hash<int> hasher;
+    return hasher(p.first) ^ hasher(p.second);
+  }
+};
 
 class Drawing {
 public:
   Drawing(const Point2d& start);
+  Drawing(const std::list<Point2d>& vs): _verts{vs}, _is_finished{true} {}
   virtual ~Drawing() = default;
   void add_point(Point2d pt);
   virtual void draw() = 0;
@@ -19,12 +27,22 @@ protected:
 class LineDrawing: public Drawing {
  public:
   LineDrawing(const Point2d& start): Drawing{start} {}
+  LineDrawing(const std::list<Point2d>& start): Drawing{start} {}
   void draw();
 };
 
 class LoopDrawing: public Drawing {
 public:
-  LoopDrawing(const Point2d& start): Drawing{start} {}
+  LoopDrawing(const Point2d& start):
+    Drawing{start} {}
+  LoopDrawing(const std::list<Point2d>& start):
+    Drawing{start} {}
+  void draw();
+};
+
+class BlobDrawing: public Drawing {
+public:
+  BlobDrawing(const Point2d& start);
   void draw();
 };
 
@@ -40,6 +58,8 @@ class Painter {
   void paint();
   void undo();
   void add_point(const Point2d& pt);
+  void clip(const std::list<Point2d>& clip_window);
+  void fill();
  private:
   std::list<UniqDrawing> _drawings;
   bool _is_painting;
