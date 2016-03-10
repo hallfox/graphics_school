@@ -224,6 +224,7 @@ void mouse_handler(int button, int state, int x, int y) {
 void mouse_motion_handler(int x, int y) {
   int h = glutGet(GLUT_WINDOW_HEIGHT);
   painter.move_brush(std::make_pair(x, h - y));
+  viewport_painter.move_brush(std::make_pair(x, h - y));
 
   if (viewport.is_resizing) {
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -264,8 +265,8 @@ void keyboard_handler(unsigned char key, int x, int y) {
     map_viewport();
     break;
   case 'f':
-    if (!clip_enabled && !painter.is_painting()) {
-      painter.fill();
+    if (clip_enabled && !painter.is_painting()) {
+      viewport_painter.fill();
     }
     break;
   case 'v':
