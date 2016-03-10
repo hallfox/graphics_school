@@ -15,9 +15,9 @@ public:
   Drawing(const Point2d& start);
   Drawing(const std::list<Point2d>& vs): _verts{vs}, _is_finished{true} {}
   virtual ~Drawing() = default;
-  void add_point(Point2d pt);
+  void add_point(const Point2d& pt);
   virtual void draw() = 0;
-  std::list<Point2d>& get_points() { return _verts; }
+  const std::list<Point2d>& get_points() const { return _verts; }
   void finish();
 protected:
   std::list<Point2d> _verts;
@@ -59,7 +59,9 @@ class Painter {
   void undo();
   void add_point(const Point2d& pt);
   void clip(const std::list<Point2d>& clip_window);
-  void fill();
+  void fill(const Point2d& p = Point2d(-1, -1));
+  const std::list<UniqDrawing>& get_drawings() { return _drawings; }
+  void delete_drawings();
  private:
   std::list<UniqDrawing> _drawings;
   bool _is_painting;

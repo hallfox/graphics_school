@@ -6,32 +6,67 @@
 #include <iostream>
 #include "draw.hpp"
 
+struct Window {
+  Window(int x, int y, int w, int h):
+    x{x}, y{y}, w{w}, h{h} {}
+  void draw() {
+    glLineStipple(1, 0xF0F0);
+    glEnable(GL_LINE_STIPPLE);
+    glBegin(GL_LINE_LOOP);
+    glVertex2i(x, y);
+    glVertex2i(x+w, y);
+    glVertex2i(x+w, y+h);
+    glVertex2i(x, y+h);
+    glEnd();
+    glDisable(GL_LINE_STIPPLE);
+  }
+  inline bool contains(const Point2d& p) {
+    return x <= p.first && p.first <= x+w && y <= p.second && p.second <= y+h;
+  }
+  int x, y, w, h;
+};
+
 namespace {
-  Painter painter;
-  std::list<Point2d> clip_window {
-    std::make_pair(150, 150),
-      std::make_pair(400, 150),
-      std::make_pair(400, 400),
-      std::make_pair(150, 400)
-      };
+  Painter painter, viewport_painter;
+  Window clip_window{150, 150, 250, 250};
+  Window viewport{500, 300, 100, 100};
 }
 
 void init() {
   glClearColor(1.0, 1.0, 1.0, 0.0);
   glLineWidth(2.0);
   glShadeModel(GL_FLAT);
-  painter = Painter();
+  painter = Painter{};
+  viewport_painter = Painter{};
 }
 
-void draw_clipping_window() {
-  glLineStipple(1, 0xF0F0);
-  glEnable(GL_LINE_STIPPLE);
-  glBegin(GL_LINE_LOOP);
-  for (auto& pt: clip_window) {
-    glVertex2i(pt.first, pt.second);
+void map_viewport() {
+  // Draw painter's drawings that lie in the clipping window
+  viewport_painter.delete_drawings();
+  for (auto& pic: painter.get_drawings()) {
+    if (dynamic_cast<BlobDrawing *>(pic.get())) {
+      continue;
+    }
+
+    for (auto& pt: pic->get_points()) {
+      if (clip_window.contains(pt)) {
+        Point2d t1 = std::make_pair(pt.first-clip_window.x, pt.second-clip_window.y);
+        Point2d t2 = std::make_pair(static_cast<int>(t1.first * (static_cast<double>(viewport.w)/clip_window.w)),
+                                    static_cast<int>(t1.second * (static_cast<double>(viewport.h)/clip_window.h)));
+        Point2d t3 = std::make_pair(t2.first+viewport.x, t2.second+viewport.y);
+
+        if (!viewport_painter.is_painting()) {
+          viewport_painter.start_drawing(t3);
+        } else {
+          viewport_painter.add_point(t3);
+        }
+      }
+    }
+    if (viewport_painter.is_painting()) {
+      viewport_painter.stop_drawing();
+    }
   }
-  glEnd();
-  glDisable(GL_LINE_STIPPLE);
+
 }
 
 void display() {
@@ -39,8 +74,10 @@ void display() {
   glClear(GL_COLOR_BUFFER_BIT);
 
   glColor3f(0.0, 0.0, 0.0);
-  draw_clipping_window();
+  clip_window.draw();
+  viewport.draw();
   painter.paint();
+  viewport_painter.paint();
 
   glutSwapBuffers();
 }
@@ -97,13 +134,22 @@ void keyboard_handler(unsigned char key, int x, int y) {
     break;
   case 'c':
     if (!painter.is_painting()) {
-      painter.clip(clip_window);
+      std::list<Point2d> bounds{
+        std::make_pair(clip_window.x, clip_window.y),
+          std::make_pair(clip_window.x+clip_window.w, clip_window.y),
+          std::make_pair(clip_window.x+clip_window.w, clip_window.y+clip_window.h),
+          std::make_pair(clip_window.x, clip_window.y+clip_window.h)
+          };
+      painter.clip(bounds);
     }
     break;
   case 'f':
     if (!painter.is_painting()) {
       painter.fill();
     }
+    break;
+  case 'v':
+    map_viewport();
     break;
   default:
     break;

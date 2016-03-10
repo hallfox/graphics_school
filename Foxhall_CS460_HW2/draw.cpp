@@ -14,7 +14,7 @@ Drawing::Drawing(const Point2d& start):
   this->add_point(start);
 }
 
-void Drawing::add_point(Point2d pt) {
+void Drawing::add_point(const Point2d& pt) {
   assert(!_is_finished);
   _verts.push_back(pt);
 }
@@ -102,10 +102,9 @@ Painter::Painter() {
 }
 
 void Painter::start_drawing(const Point2d& pt) {
-  if (!_is_painting) {
-    _is_painting = true;
-    _drawings.push_back(std::unique_ptr<Drawing>(new LoopDrawing(pt)));
-  }
+  assert(!_is_painting);
+  _is_painting = true;
+  _drawings.push_back(std::unique_ptr<Drawing>(new LoopDrawing(pt)));
 }
 
 void Painter::stop_drawing() {
@@ -133,6 +132,7 @@ void Painter::undo() {
 }
 
 void Painter::add_point(const Point2d& pt) {
+  assert(_is_painting);
   _drawings.back()->add_point(pt);
 }
 
@@ -192,6 +192,15 @@ void Painter::clip(const std::list<Point2d>& clip_window) {
 
 }
 
-void Painter::fill() {
-  _drawings.push_back(UniqDrawing(new BlobDrawing(get_brush())));
+void Painter::fill(const Point2d& p) {
+  if (p == Point2d(-1, -1)) {
+    _drawings.push_back(UniqDrawing(new BlobDrawing(get_brush())));
+  } else {
+    _drawings.push_back(UniqDrawing(new BlobDrawing(p)));
+  }
+}
+
+void Painter::delete_drawings() {
+  assert(!_is_painting);
+  _drawings.clear();
 }
