@@ -62,6 +62,7 @@ class Painter {
   void fill(const Point2d& p = Point2d(-1, -1));
   const std::list<UniqDrawing>& get_drawings() { return _drawings; }
   void delete_drawings();
+  void add_drawing(const std::list<Point2d>&);
  private:
   std::list<UniqDrawing> _drawings;
   bool _is_painting;

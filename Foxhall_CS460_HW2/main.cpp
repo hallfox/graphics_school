@@ -1,10 +1,11 @@
 #include <OpenGL/gl.h>
 #include <OpenGL/glu.h>
 #include <GLUT/glut.h>
+#include "draw.hpp"
 
 #include <stdlib.h>
 #include <iostream>
-#include "draw.hpp"
+#include <assert.h>
 
 struct Window {
   Window(int x, int y, int w, int h):
@@ -33,7 +34,7 @@ namespace {
   Painter painter, viewport_painter;
   Window clip_window{150, 150, 250, 250};
   Window viewport{500, 300, 100, 100};
-  bool paint_enabled;
+  bool clip_enabled;
 }
 
 void init() {
@@ -42,13 +43,75 @@ void init() {
   glShadeModel(GL_FLAT);
   painter = Painter{};
   viewport_painter = Painter{};
-  paint_enabled = true;
+  clip_enabled = false;
+}
+
+inline bool inside_boundary(Point2d a, Point2d b, Point2d x) {
+  return (b.first - a.first)*(x.second - a.second) - (x.first - a.first)*(b.second - a.second) >= 0;
+}
+
+Point2d intersect(const std::pair<Point2d, Point2d>& v1, const std::pair<Point2d, Point2d>& v2) {
+  int a1 = (v1.first.first*v1.second.second - v1.first.second*v1.second.first)*(v2.first.first - v2.second.first) -
+    (v1.first.first - v1.second.first)*(v2.first.first*v2.second.second - v2.first.second*v2.second.first);
+
+  int a2 = (v1.first.first*v1.second.second - v1.first.second*v1.second.first)*(v2.first.second - v2.second.second) -
+    (v1.first.second - v1.second.second)*(v2.first.first*v2.second.second - v2.first.second*v2.second.first);
+
+  int b = (v1.first.first - v1.second.first)*(v2.first.second - v2.second.second) -
+    (v1.first.second - v1.second.second)*(v2.first.first - v2.second.first);
+
+  assert(b != 0);
+  return std::make_pair(a1/b, a2/b);
+}
+
+void clip(const std::list<Point2d>& clip_window) {
+  std::list<Point2d> output_verts;
+
+  for (auto& pic: painter.get_drawings()) {
+    output_verts = pic->get_points();
+
+    for (auto it = clip_window.cbegin(); it != clip_window.cend();) {
+      std::pair<Point2d, Point2d> clip_edge;
+      if (it == --clip_window.cend()) {
+        clip_edge = std::make_pair(*it, *clip_window.cbegin());
+        it++;
+      } else {
+        clip_edge = std::make_pair(*it, *(++it));
+      }
+      auto input_verts = output_verts;
+      output_verts.clear();
+      auto last = input_verts.back();
+      // Clipping assumes vertices are drawn counterclockwise
+      for (auto& p: input_verts) {
+        if (inside_boundary(clip_edge.first, clip_edge.second, p)) {
+          if (!inside_boundary(clip_edge.first, clip_edge.second, last)) {
+            // outside -> inside
+            output_verts.push_back(intersect(std::make_pair(p, last), clip_edge));
+          }
+          // inside -> inside or outside -> inside
+          output_verts.push_back(p);
+        } else if (inside_boundary(clip_edge.first, clip_edge.second, last)) {
+          // inside -> outside
+          output_verts.push_back(intersect(std::make_pair(p,last), clip_edge));
+        }
+        last = p;
+      }
+    }
+    viewport_painter.add_drawing(output_verts);
+  }
 }
 
 void map_viewport() {
   // Draw painter's drawings that lie in the clipping window
   viewport_painter.delete_drawings();
-  for (auto& pic: painter.get_drawings()) {
+  std::list<Point2d> bounds{
+    std::make_pair(clip_window.x, clip_window.y),
+      std::make_pair(clip_window.x+clip_window.w, clip_window.y),
+      std::make_pair(clip_window.x+clip_window.w, clip_window.y+clip_window.h),
+      std::make_pair(clip_window.x, clip_window.y+clip_window.h)
+      };
+  clip(bounds);
+  for (auto& pic: viewport_painter.get_drawings()) {
     if (dynamic_cast<BlobDrawing *>(pic.get())) {
       continue;
     }
@@ -81,8 +144,11 @@ void display() {
   glColor3f(0.0, 0.0, 0.0);
   clip_window.draw();
   viewport.draw();
-  painter.paint();
-  viewport_painter.paint();
+  if (!clip_enabled) {
+    painter.paint();
+  } else {
+    viewport_painter.paint();
+  }
 
   glutSwapBuffers();
 }
@@ -90,7 +156,7 @@ void display() {
 void mouse_handler(int button, int state, int x, int y) {
   int height = glutGet(GLUT_WINDOW_HEIGHT);
   auto pt = Point2d(x, height - y);
-  if (paint_enabled) {
+  if (!clip_enabled) {
     // NOTE x and y are relative to the top left of the window,
     // they will be transformed before they go into the user list
     if (!painter.is_painting()) {
@@ -164,6 +230,10 @@ void mouse_motion_handler(int x, int y) {
     glColor3f(0.0, 0.0, 1.0);
     glRecti(x, h-y, viewport.x, viewport.y);
     glColor3f(0.0, 0.0, 0.0);
+  } else if (clip_window.is_dragging) {
+    clip_window.x += x - clip_window.x;
+    clip_window.y += (h-y) - clip_window.y;
+    map_viewport();
   }
 }
 
@@ -186,28 +256,20 @@ void keyboard_handler(unsigned char key, int x, int y) {
     }
     break;
   case 'c':
-    if (!painter.is_painting()) {
-      std::list<Point2d> bounds{
-        std::make_pair(clip_window.x, clip_window.y),
-          std::make_pair(clip_window.x+clip_window.w, clip_window.y),
-          std::make_pair(clip_window.x+clip_window.w, clip_window.y+clip_window.h),
-          std::make_pair(clip_window.x, clip_window.y+clip_window.h)
-          };
-      painter.clip(bounds);
+    if (clip_enabled) {
+      clip_enabled = false;
+    } else if (!painter.is_painting()) {
+      clip_enabled = true;
     }
     map_viewport();
     break;
   case 'f':
-    if (paint_enabled && !painter.is_painting()) {
+    if (!clip_enabled && !painter.is_painting()) {
       painter.fill();
     }
     break;
   case 'v':
     map_viewport();
-    break;
-  case 'z':
-    paint_enabled = !paint_enabled;
-
     break;
   default:
     break;

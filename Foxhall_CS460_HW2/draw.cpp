@@ -136,62 +136,6 @@ void Painter::add_point(const Point2d& pt) {
   _drawings.back()->add_point(pt);
 }
 
-inline bool inside_boundary(Point2d a, Point2d b, Point2d x) {
-  return (b.first - a.first)*(x.second - a.second) - (x.first - a.first)*(b.second - a.second) >= 0;
-}
-
-Point2d intersect(const std::pair<Point2d, Point2d>& v1, const std::pair<Point2d, Point2d>& v2) {
-  int a1 = (v1.first.first*v1.second.second - v1.first.second*v1.second.first)*(v2.first.first - v2.second.first) -
-    (v1.first.first - v1.second.first)*(v2.first.first*v2.second.second - v2.first.second*v2.second.first);
-
-  int a2 = (v1.first.first*v1.second.second - v1.first.second*v1.second.first)*(v2.first.second - v2.second.second) -
-    (v1.first.second - v1.second.second)*(v2.first.first*v2.second.second - v2.first.second*v2.second.first);
-
-  int b = (v1.first.first - v1.second.first)*(v2.first.second - v2.second.second) -
-    (v1.first.second - v1.second.second)*(v2.first.first - v2.second.first);
-
-  assert(b != 0);
-  return std::make_pair(a1/b, a2/b);
-}
-
-void Painter::clip(const std::list<Point2d>& clip_window) {
-  std::list<Point2d> output_verts;
-
-  for (auto& pic: _drawings) {
-    output_verts = pic->get_points();
-
-    for (auto it = clip_window.cbegin(); it != clip_window.cend();) {
-      std::pair<Point2d, Point2d> clip_edge;
-      if (it == --clip_window.cend()) {
-        clip_edge = std::make_pair(*it, *clip_window.cbegin());
-        it++;
-      } else {
-        clip_edge = std::make_pair(*it, *(++it));
-      }
-      auto input_verts = output_verts;
-      output_verts.clear();
-      auto last = input_verts.back();
-      // Clipping assumes vertices are drawn counterclockwise
-      for (auto& p: input_verts) {
-        if (inside_boundary(clip_edge.first, clip_edge.second, p)) {
-          if (!inside_boundary(clip_edge.first, clip_edge.second, last)) {
-            // outside -> inside
-            output_verts.push_back(intersect(std::make_pair(p, last), clip_edge));
-          }
-          // inside -> inside or outside -> inside
-          output_verts.push_back(p);
-        } else if (inside_boundary(clip_edge.first, clip_edge.second, last)) {
-          // inside -> outside
-          output_verts.push_back(intersect(std::make_pair(p,last), clip_edge));
-        }
-        last = p;
-      }
-    }
-    pic = UniqDrawing(new LoopDrawing(output_verts));
-  }
-
-}
-
 void Painter::fill(const Point2d& p) {
   if (p == Point2d(-1, -1)) {
     _drawings.push_back(UniqDrawing(new BlobDrawing(get_brush())));
@@ -203,4 +147,9 @@ void Painter::fill(const Point2d& p) {
 void Painter::delete_drawings() {
   assert(!_is_painting);
   _drawings.clear();
+}
+
+void Painter::add_drawing(const std::list<Point2d>& d) {
+  assert(!_is_painting);
+  _drawings.push_back(UniqDrawing(new LoopDrawing(d)));
 }
