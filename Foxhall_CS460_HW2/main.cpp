@@ -8,28 +8,32 @@
 
 struct Window {
   Window(int x, int y, int w, int h):
-    x{x}, y{y}, w{w}, h{h} {}
+    x{x}, y{y}, w{w}, h{h}, is_resizing{false}, is_dragging{false} {}
   void draw() {
     glLineStipple(1, 0xF0F0);
     glEnable(GL_LINE_STIPPLE);
-    glBegin(GL_LINE_LOOP);
-    glVertex2i(x, y);
-    glVertex2i(x+w, y);
-    glVertex2i(x+w, y+h);
-    glVertex2i(x, y+h);
-    glEnd();
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    glRecti(x, y, x+w, y+h);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    glRecti(x-10, y-10, x, y);
     glDisable(GL_LINE_STIPPLE);
+  }
+  inline bool in_zoom_box(const Point2d& p) {
+    return x-10 <= p.first && p.first <= x && y-10 <= p.second && p.second <= y;
   }
   inline bool contains(const Point2d& p) {
     return x <= p.first && p.first <= x+w && y <= p.second && p.second <= y+h;
   }
   int x, y, w, h;
+  bool is_resizing;
+  bool is_dragging;
 };
 
 namespace {
   Painter painter, viewport_painter;
   Window clip_window{150, 150, 250, 250};
   Window viewport{500, 300, 100, 100};
+  bool paint_enabled;
 }
 
 void init() {
@@ -38,6 +42,7 @@ void init() {
   glShadeModel(GL_FLAT);
   painter = Painter{};
   viewport_painter = Painter{};
+  paint_enabled = true;
 }
 
 void map_viewport() {
@@ -83,28 +88,69 @@ void display() {
 }
 
 void mouse_handler(int button, int state, int x, int y) {
-  // NOTE x and y are relative to the top left of the window,
-  // they will be transformed before they go into the user list
   int height = glutGet(GLUT_WINDOW_HEIGHT);
-  auto pt = std::make_pair(x, height - y);
-  if (!painter.is_painting()) {
-    // Go into drawing mode
-    if (button == GLUT_LEFT_BUTTON && state == GLUT_UP) {
-      std::cout << "Starting drawing at: " << pt.first << ", " << pt.second << std::endl;
-      painter.start_drawing(pt);
+  auto pt = Point2d(x, height - y);
+  if (paint_enabled) {
+    // NOTE x and y are relative to the top left of the window,
+    // they will be transformed before they go into the user list
+    if (!painter.is_painting()) {
+      // Go into drawing mode
+      if (button == GLUT_LEFT_BUTTON && state == GLUT_UP) {
+        std::cout << "Starting drawing at: " << pt.first << ", " << pt.second << std::endl;
+        painter.start_drawing(pt);
+      }
     }
-  }
-  else {
-    // Things you can do in drawing mode:
-    // - left click to add new point
-    // - right click to stop drawing
+    else {
+      // Things you can do in drawing mode:
+      // - left click to add new point
+      // - right click to stop drawing
+      if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
+        std::cout << "Adding new point: " << pt.first << ", " << pt.second << std::endl;
+        painter.add_point(pt);
+      }
+      else if (button == GLUT_RIGHT_BUTTON && state == GLUT_UP) {
+        std::cout << "Drawing ended.\n";
+        painter.stop_drawing();
+      }
+    }
+  } else {
+    // If left mouse down
+    //   If mouse in viewport zoom window
+    //     If in left mouse down
+    //       Draw rectangle to mouse
+    //     Else if left mouse up
+    //       Change viewport size to mouse location
     if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
-      std::cout << "Adding new point: " << pt.first << ", " << pt.second << std::endl;
-      painter.add_point(pt);
-    }
-    else if (button == GLUT_RIGHT_BUTTON && state == GLUT_UP) {
-      std::cout << "Drawing ended.\n";
-      painter.stop_drawing();
+      if (viewport.in_zoom_box(pt)) {
+        viewport.is_resizing = true;
+      } else if (clip_window.in_zoom_box(pt)) {
+        clip_window.is_resizing = true;
+      } else if (clip_window.contains(pt)) {
+        clip_window.is_dragging = true;
+      }
+    } else if (button == GLUT_LEFT_BUTTON && state == GLUT_UP) {
+      // WHO EVER SAID REPEAT CODE IS BAD WHEN YOU HAVE A DEADLINE
+      if (viewport.is_resizing) {
+        viewport.is_resizing = false;
+        viewport.w = std::abs(x-viewport.x-viewport.w);
+        viewport.h = std::abs(height-y - viewport.y-viewport.h);
+        viewport.x = x;
+        viewport.y = height-y;
+        map_viewport();
+      } else if (clip_window.is_resizing) {
+        clip_window.is_resizing = false;
+        clip_window.w = std::abs(x-clip_window.x-clip_window.w);
+        clip_window.h = std::abs(height-y - clip_window.y-clip_window.h);
+        clip_window.x = x;
+        clip_window.y = height-y;
+        map_viewport();
+      } else if (clip_window.is_dragging) {
+        // LOL DOESN'T WORK QUITE RIGHT WHATEVS
+        clip_window.is_dragging = false;
+        clip_window.x += x - clip_window.x;
+        clip_window.y += (height-y) - clip_window.y;
+        map_viewport();
+      }
     }
   }
 }
@@ -112,6 +158,13 @@ void mouse_handler(int button, int state, int x, int y) {
 void mouse_motion_handler(int x, int y) {
   int h = glutGet(GLUT_WINDOW_HEIGHT);
   painter.move_brush(std::make_pair(x, h - y));
+
+  if (viewport.is_resizing) {
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    glColor3f(0.0, 0.0, 1.0);
+    glRecti(x, h-y, viewport.x, viewport.y);
+    glColor3f(0.0, 0.0, 0.0);
+  }
 }
 
 void reshape(int w, int h) {
@@ -142,14 +195,19 @@ void keyboard_handler(unsigned char key, int x, int y) {
           };
       painter.clip(bounds);
     }
+    map_viewport();
     break;
   case 'f':
-    if (!painter.is_painting()) {
+    if (paint_enabled && !painter.is_painting()) {
       painter.fill();
     }
     break;
   case 'v':
     map_viewport();
+    break;
+  case 'z':
+    paint_enabled = !paint_enabled;
+
     break;
   default:
     break;
