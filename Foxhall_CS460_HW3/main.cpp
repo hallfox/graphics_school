@@ -10,10 +10,12 @@ namespace {
   double camera_x = 0.0;
   double camera_y = 0.0;
   double camera_z = 40.0;
-  double theta_z = 0.0;
   double fairy_x = 0.0;
   double fairy_y = 0.0;
   double fairy_z = camera_z - 1;
+  double up_x = 0.0;
+  double up_y = 1.0;
+  double up_z = 0.0;
   double lever_rot = 0.0;
   GLsizei width;
   GLsizei height;
@@ -28,7 +30,9 @@ void reset_camera() {
   fairy_x = 0.0;
   fairy_y = 0.0;
   fairy_z = camera_z - 1;
-  theta_z = 0.0;
+  up_x = 0.0;
+  up_y = 1.0;
+  up_z = 0.0;
   lever_rot = 0.0;
 }
 
@@ -63,14 +67,14 @@ void draw_ground() {
   glEnd();
 }
 
-void draw_cylinder(float rx, float ry, float rz) {
+void draw_cylinder() {
+  glPushMatrix();
+  //glRotatef(rx, 1, 0, 0);
+  //glRotatef(ry, 0, 1, 0);
+  //glRotatef(rz, 0, 0, 1);
+
   // Draw ground
   draw_ground();
-
-  glPushMatrix();
-  glRotatef(rx, 1, 0, 0);
-  glRotatef(ry, 0, 1, 0);
-  glRotatef(rz, 0, 0, 1);
 
   // Draw cylinder
   GLUquadricObj *quad = gluNewQuadric();
@@ -83,14 +87,14 @@ void draw_cylinder(float rx, float ry, float rz) {
   glPopMatrix();
 }
 
-void draw_lever(float rx, float ry, float rz) {
+void draw_lever() {
+  glPushMatrix();
+  //glRotatef(rx, 1, 0, 0);
+  //glRotatef(ry, 0, 1, 0);
+  //glRotatef(rz, 0, 0, 1);
+
   // Draw ground
   draw_ground();
-
-  glPushMatrix();
-  glRotatef(rx, 1, 0, 0);
-  glRotatef(ry, 0, 1, 0);
-  glRotatef(rz, 0, 0, 1);
 
   GLUquadricObj *quad = gluNewQuadric();
   gluQuadricDrawStyle(quad, GLU_FILL);
@@ -147,11 +151,11 @@ void draw_lever(float rx, float ry, float rz) {
   glPopMatrix();
 }
 
-void draw_scene(float rx, float ry, float rz) {
+void draw_scene() {
   if (current_scene == SCENE_CYLINDER) {
-    draw_cylinder(rx, ry, rz);
+    draw_cylinder();
   } else if (current_scene == SCENE_LEVER) {
-    draw_lever(rx, ry, rz);
+    draw_lever();
   }
 }
 
@@ -168,7 +172,7 @@ void draw_perpective(float x, float y, float z, float u, float v, float n) {
   glLoadIdentity();
   // Camera adjustment
   gluLookAt(x, y, z, 0.0, 0.0, 0.0, u, v, n);
-  draw_scene(0.0, 0.0, 0.0);
+  draw_scene();
 }
 
 void draw_side_views() {
@@ -202,18 +206,8 @@ void display() {
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
   // Camera adjustment
-  gluLookAt(camera_x, camera_y, camera_z, fairy_x, fairy_y, fairy_z, 0.0, 1.0, 0.0);
-  draw_scene(0, 0, theta_z);
-  // Draw fairy
-  glPushMatrix();
-  GLUquadricObj *quad = gluNewQuadric();
-  gluQuadricDrawStyle(quad, GLU_LINE);
-  glTranslated(fairy_x, fairy_y, fairy_z);
-  glColor3f(1.0, 0.0, 1.0);
-  glLineWidth(1.0);
-  gluSphere(quad, 0.1, 10, 10);
-  gluDeleteQuadric(quad);
-  glPopMatrix();
+  gluLookAt(camera_x, camera_y, camera_z, fairy_x, fairy_y, fairy_z, up_x, up_y, up_z);
+  draw_scene();
 
   draw_side_views();
 
@@ -222,18 +216,10 @@ void display() {
   glutSwapBuffers();
 }
 
-
-void mouse_handler(int , int , int , int ) {
-}
-
-void mouse_motion_handler(int , int ) {
-}
-
 void reshape(int w, int h) {
   glViewport(0, 0, (GLsizei) w, (GLsizei) h);
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
-  //glFrustum(-1.0, 1.0, -1.0, 1.0, 1.5, 20.0);
   glOrtho(0, w, h, 0, -1, 1);
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
@@ -242,41 +228,58 @@ void reshape(int w, int h) {
   height = h;
 }
 
+void rotate(double& x, double& y, double theta) {
+  double t = cos(theta)*x - sin(theta)*y;
+  y = sin(theta)*x + cos(theta)*y;
+  x = t;
+}
+
 void keyboard_handler(unsigned char key, int, int) {
   double delta_x;
   double delta_y;
   double delta_z;
+  double mag;
+  double look_angle;
+  double rot_angle = 0.174533;
   switch (key) {
     case 27: // ESC
       exit(0);
       break;
     case 'w':
-      delta_x = (fairy_x - camera_x) * 10;
-      delta_y = (fairy_y - camera_y) * 10;
-      delta_z = (fairy_z - camera_z) * 10;
-      fairy_x += delta_x;
-      fairy_y += delta_y;
-      fairy_z += delta_z;
-      camera_x += delta_x;
-      camera_y += delta_y;
-      camera_z += delta_z;
+      delta_x = fairy_x - camera_x;
+      delta_y = fairy_y - camera_y;
+      delta_z = fairy_z - camera_z;
+      mag = sqrt(delta_x*delta_x + delta_y*delta_y + delta_z*delta_z);
+      fairy_x += 10*delta_x/mag;
+      fairy_y += 10*delta_y/mag;
+      fairy_z += 10*delta_z/mag;
+      camera_x += 10*delta_x/mag;
+      camera_y += 10*delta_y/mag;
+      camera_z += 10*delta_z/mag;
       break;
     case 's':
-      delta_x = (fairy_x - camera_x) * -10;
-      delta_y = (fairy_y - camera_y) * -10;
-      delta_z = (fairy_z - camera_z) * -10;
-      fairy_x += delta_x;
-      fairy_y += delta_y;
-      fairy_z += delta_z;
-      camera_x += delta_x;
-      camera_y += delta_y;
-      camera_z += delta_z;
+      delta_x = fairy_x - camera_x;
+      delta_y = fairy_y - camera_y;
+      delta_z = fairy_z - camera_z;
+      mag = sqrt(delta_x*delta_x + delta_y*delta_y + delta_z*delta_z);
+      fairy_x += -10*delta_x/mag;
+      fairy_y += -10*delta_y/mag;
+      fairy_z += -10*delta_z/mag;
+      camera_x += -10*delta_x/mag;
+      camera_y += -10*delta_y/mag;
+      camera_z += -10*delta_z/mag;
       break;
     case 'r':
-      theta_z += 10;
+      look_angle = atan(fairy_x/fairy_z);
+      rotate(up_x, up_z, look_angle);
+      rotate(up_x, up_y, rot_angle);
+      rotate(up_x, up_z, -look_angle);
       break;
     case 'R':
-      theta_z -= 10;
+      look_angle = atan(fairy_x/fairy_z);
+      rotate(up_x, up_z, look_angle);
+      rotate(up_x, up_y, -rot_angle);
+      rotate(up_x, up_z, -look_angle);
       break;
     case 'n':
       next_scene();
@@ -291,16 +294,8 @@ void keyboard_handler(unsigned char key, int, int) {
   }
 }
 
-void rotate(double& x, double& y, double theta) {
-  double t = cos(theta)*x - sin(theta)*y;
-  y = sin(theta)*x + cos(theta)*y;
-  x = t;
-}
-
 void special_key_handler(int key, int, int) {
   double rot_angle = 0.174533;
-  //double sin_theta = sin(rot_angle);
-  //double cos_theta = cos(rot_angle);
   double look_angle;
   switch (key) {
     case GLUT_KEY_UP:
@@ -312,8 +307,6 @@ void special_key_handler(int key, int, int) {
       rotate(fairy_x, fairy_z, -look_angle);
       fairy_y += camera_y;
       fairy_z += camera_z;
-      //fairy_y = cos_theta*fairy_y - sin_theta*fairy_z + camera_y;
-      //fairy_z = sin_theta*fairy_y + cos_theta*fairy_z + camera_z;
       break;
     case GLUT_KEY_DOWN:
       fairy_y -= camera_y;
@@ -324,8 +317,6 @@ void special_key_handler(int key, int, int) {
       rotate(fairy_x, fairy_z, -look_angle);
       fairy_y += camera_y;
       fairy_z += camera_z;
-      //fairy_y = cos_theta*fairy_y + sin_theta*fairy_z + camera_y;
-      //fairy_z = -sin_theta*fairy_y + cos_theta*fairy_z + camera_z;
       break;
     case GLUT_KEY_RIGHT:
       fairy_x -= camera_x;
@@ -333,8 +324,6 @@ void special_key_handler(int key, int, int) {
       rotate(fairy_x, fairy_z, rot_angle);
       fairy_y += camera_y;
       fairy_z += camera_z;
-      //fairy_x = cos_theta*fairy_x - sin_theta*fairy_z + camera_x;
-      //fairy_z = sin_theta*fairy_x + cos_theta*fairy_z + camera_z;
       break;
     case GLUT_KEY_LEFT:
       fairy_x -= camera_x;
@@ -342,8 +331,6 @@ void special_key_handler(int key, int, int) {
       rotate(fairy_x, fairy_z, -rot_angle);
       fairy_y += camera_y;
       fairy_z += camera_z;
-      //fairy_x = cos_theta*fairy_x + sin_theta*fairy_z + camera_x;
-      //fairy_z = -sin_theta*fairy_x + cos_theta*fairy_z + camera_z;
       break;
     default:
       break;
@@ -367,9 +354,6 @@ int main(int argc, char *argv[]) {
   glutDisplayFunc(display);
   glutIdleFunc(display);
   glutReshapeFunc(reshape);
-  glutMouseFunc(mouse_handler);
-  glutMotionFunc(mouse_motion_handler);
-  glutPassiveMotionFunc(mouse_motion_handler);
   glutKeyboardFunc(keyboard_handler);
   glutSpecialFunc(special_key_handler);
 

@@ -5,7 +5,7 @@ DISTNAME := cs460_foxhall_taylor
 SRCEXT := cpp
 HEADEREXT := hpp
 CFLAGS := -g -Wall -Wextra -pedantic -std=c++11 -Wno-deprecated-declarations
-LIB := -framework GLUT -framework OpenGL -framework Cocoa
+LIB := -framework GLUT -framework OpenGL -framework Cocoa -lm
 SOURCES := $(shell find . -type f -name "*.$(SRCEXT)")
 OBJECTS := $(patsubst %.$(SRCEXT),%.o,$(SOURCES))
 HEADERS := $(shell find . -type f -name "*.$(HEADEREXT)")

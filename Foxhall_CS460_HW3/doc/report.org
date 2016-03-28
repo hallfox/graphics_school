@@ -1,0 +1,143 @@
+#+LATEX_CLASS: article
+#+LATEX_CLASS_OPTIONS:
+#+LATEX_HEADER:
+#+LATEX_HEADER_EXTRA:
+#+DESCRIPTION:
+#+KEYWORDS:
+#+OPTIONS: toc:nil
+#+SUBTITLE:
+#+AUTHOR: Taylor Foxhall
+#+TITLE: 3D Viewport and Projections
+#+DATE: \today
+
+* Introduction
+  Here we implement some simple algorithms that move a camera around in a 3D
+  space, including a pitch, yaw, roll, and zoom effect. The camera will
+  observe static and animated models in two separate scenes.
+** Pitch, Yaw, Roll, and Zoom
+   OpenGL has a ~glLookAt()~ function, which performs transformations on a
+   scene making it appear a camera is looking at a particular point. We can
+   perform transforms on the camera's position and its look-at point (which I
+   have been prone to call "the fairy").
+** Code Exposé
+   #+BEGIN_SRC C++
+   // Yaw transform
+   fairy_x -= camera_x;
+   fairy_z -= camera_z;
+   rotate(fairy_x, fairy_z, rot_angle);
+   fairy_y += camera_y;
+   fairy_z += camera_z;
+   // Pitch transform
+   fairy_y -= camera_y;
+   fairy_z -= camera_z;
+   // Must align with xz-axis to get proper rotation
+   look_angle = atan(fairy_x/fairy_z);
+   rotate(fairy_x, fairy_z, look_angle);
+   rotate(fairy_y, fairy_z, rot_angle);
+   rotate(fairy_x, fairy_z, -look_angle);
+   fairy_y += camera_y;
+   fairy_z += camera_z;
+   // Roll transform
+   look_angle = atan(fairy_x/fairy_z);
+   rotate(up_x, up_z, look_angle);
+   rotate(up_x, up_y, rot_angle);
+   rotate(up_x, up_z, -look_angle);
+   // Zoom transform
+   delta_x = fairy_x - camera_x;
+   delta_y = fairy_y - camera_y;
+   delta_z = fairy_z - camera_z;
+   mag = sqrt(delta_x*delta_x + delta_y*delta_y + delta_z*delta_z);
+   fairy_x += 10*delta_x/mag;
+   fairy_y += 10*delta_y/mag;
+   fairy_z += 10*delta_z/mag;
+   camera_x += 10*delta_x/mag;
+   camera_y += 10*delta_y/mag;
+   camera_z += 10*delta_z/mag;
+   #+END_SRC
+** Lever Rotation
+   The lever object is built through a series of OpenGL shapes and transforms
+   using ~glPushMatrix()~ and ~glPopMatrix()~. The animation has animation
+   parameters which are adjustable with the ~g~ and ~G~ keys.
+** Code Exposé
+   #+BEGIN_SRC C++
+   void draw_lever() {
+     glPushMatrix();
+
+     // Draw ground
+     draw_ground();
+
+     GLUquadricObj *quad = gluNewQuadric();
+     gluQuadricDrawStyle(quad, GLU_FILL);
+
+     glPushMatrix();
+     glRotated(lever_rot, 0, 1, 0); // rotation for b2
+     // Position s1
+     glRotated(90, 1, 0, 0);
+     // Draw s1
+     glColor3f(0.0, 0.0, 1.0);
+     gluCylinder(quad, 1, 1, 20, 10, 10);
+     // Position b2
+     // Draw b2
+     glColor3f(0.0, 1.0, 1.0);
+     gluSphere(quad, 2, 10, 10);
+     glPopMatrix();
+
+     // left arm
+     glPushMatrix();
+     glRotated(-90+lever_rot, 0, 1, 0);
+     glColor3f(0.0, 0.0, 1.0);
+     gluCylinder(quad, 1, 1, 10, 10, 10); // s2
+     glTranslated(0.0, 0.0, 10.0);
+     glRotated(90, 0, 1, 0);
+     glRotated(lever_rot+90, 1, 0, 0);
+     glColor3f(0.0, 1.0, 1.0);
+     gluSphere(quad, 1.5, 10, 10); // b1
+     glColor3f(0.0, 0.0, 1.0);
+     gluCylinder(quad, 0, 1, 10, 10, 10); // s2
+     glTranslated(0, 0, 10);
+     glColor3f(0.0, 1.0, 1.0);
+     gluSphere(quad, 3, 10, 10); // b1
+     glPopMatrix();
+
+     // right arm
+     glPushMatrix();
+     glRotated(90+lever_rot, 0, 1, 0);
+     glColor3f(0.0, 0.0, 1.0);
+     gluCylinder(quad, 1, 1, 10, 10, 10); // s2
+     glTranslated(0.0, 0.0, 10.0);
+     glRotated(90, 0, 1, 0);
+     glRotated(lever_rot+90, 1, 0, 0);
+     glColor3f(0.0, 1.0, 1.0);
+     gluSphere(quad, 1.5, 10, 10); // b1
+     glColor3f(0.0, 0.0, 1.0);
+     gluCylinder(quad, 0, 1, 10, 10, 10); // s2
+     glTranslated(0, 0, 10);
+     glColor3f(0.0, 1.0, 1.0);
+     gluSphere(quad, 3, 10, 10); // b1
+     glPopMatrix();
+
+     gluDeleteQuadric(quad);
+     glPopMatrix();
+   }
+   #+END_SRC
+* Demos
+  #+CAPTION: Basic view of scene 1
+  [[./img/scene1.png]]
+  #+CAPTION: Scene 1 with Yaw transform
+  [[./img/scene1_yaw.png]]
+  #+CAPTION: Scene 1 with Pitch transform
+  [[./img/scene1_pitch.png]]
+  #+CAPTION: Scene 1 with Roll transform
+  [[./img/scene1_roll.png]]
+  #+CAPTION: Scene 1 with Zoom In transform
+  [[./img/scene1_zoom.png]]
+  #+CAPTION: Scene 1 with Zoom Out transform
+  [[./img/scene1_out.png]]
+  #+CAPTION: Scene 1 with Multiple transforms
+  [[./img/scene1_funky.png]]
+  #+CAPTION: Basic view of scene 2
+  [[./img/scene2.png]]
+  #+CAPTION: Scene 2 with a little lever rotation
+  [[./img/scene2_rot.png]]
+  #+CAPTION: Scene 2 with a lot of lever rotation
+  [[./img/scene2_rot_more.png]]

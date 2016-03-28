@@ -245,7 +245,7 @@ void reshape(int w, int h) {
   gluOrtho2D(0.0, (GLdouble) w, 0.0, (GLdouble) h);
 }
 
-void keyboard_handler(unsigned char key, int x, int y) {
+void keyboard_handler(unsigned char key, int, int) {
   switch (key) {
   case 27: // ESC
     exit(0);

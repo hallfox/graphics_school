@@ -7,4 +7,7 @@ Control notes:
 Up, Down - Pitch
 Left, Right - Yaw
 r, R - Roll
-z, Z - Zoom
+w - Zoom in
+s - Zoom out
+n - Go to next scene
+g, G - rotate lever
