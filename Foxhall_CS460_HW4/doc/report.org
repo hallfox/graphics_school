@@ -1,0 +1,103 @@
+#+LATEX_CLASS: article
+#+LATEX_CLASS_OPTIONS:
+#+LATEX_HEADER:
+#+LATEX_HEADER_EXTRA:
+#+DESCRIPTION:
+#+KEYWORDS:
+#+OPTIONS: toc:nil
+#+SUBTITLE:
+#+AUTHOR: Taylor Foxhall
+#+TITLE: Morphing and Modeling
+#+DATE: \today
+
+* Introduction
+  How can an image be mapped on to a surface and distorted? We'll take a
+  flower and map it onto a rectangle composed of multiple rectangeles and map
+  the points on the texture with the image. We also create a 3D model which
+  those textures could be mapped to.
+** Simple Texture Mapping
+   The goal of texture mapping is to take an image and map it to a surface.
+   We'll be using a simple rectangle as a the surface, but we also want to be
+   able to distort the surface. This poses a problem because the best looking
+   way to do this require stretching the texture from all four corners of the
+   rectangle, essentially breaking it down into 4 triangles, with a common
+   vetrex starting in the center of the rectangle. We want to move this
+   common vertex, which will in turn stretch the triangles. But how do we
+   keep track of which points in the texture get mapped to 4 (or possibly
+   many more) triangles? Since we know the starting shape, we can map the
+   rectangular cartesian coordinates to a barycentric coordinate system,
+   which solely depends on the vertex of the triangle it is contained in.
+   This allows us to change any of the vertices of the triangles and
+   successfully map the texture to the new surface, however the demo only
+   allows moving the center point.
+** Code Exposé
+   #+BEGIN_SRC cpp
+   void make_flower_texture() {
+     auto flower_bmp = load_bmp("flower.bmp");
+     flower_width = flower_bmp.width;
+     flower_height = flower_bmp.height;
+     auto nw = Vertex{0, 0};
+     auto ne = Vertex{flower_bmp.width, 0};
+     auto se = Vertex{flower_bmp.width, flower_bmp.height};
+     auto sw = Vertex{0, flower_bmp.height};
+     auto center = Vertex{flower_bmp.width/2, flower_bmp.height/2};
+     flower_texture[0] = Triangle{nw, ne, center};
+     flower_texture[1] = Triangle{ne, se, center};
+     flower_texture[2] = Triangle{se, sw, center};
+     flower_texture[3] = Triangle{sw, nw, center};
+
+     for (int i = 0; i < flower_bmp.width; i++) {
+       for (int j = 0; j < flower_bmp.height; j++) {
+         auto v = Vertex(i, j);
+         int offset = j*flower_bmp.width + i;
+         auto r = flower_bmp.data[3*offset+2];
+         auto g = flower_bmp.data[3*offset+1];
+         auto b = flower_bmp.data[3*offset];
+         for (int k = 0; k < 4; k++) {
+           if (flower_texture[k].contains_vert(v)) {
+             flower_texture[k].insert(v, std::make_tuple(r, g, b));
+             break;
+           }
+         }
+       }
+     }
+   }
+   #+END_SRC
+** Tea Time
+   The challenge of modelling a 3D object in 3D space is relatively
+   simplified when all vertices and faces of the object are known. We can
+   simply load in the OBJ file, interpret the vertex and face information and
+   draw the faces using a connected loop. This gives us a serviceable
+   wireframe of the model, which light or textures could interact with.
+** Code Exposé
+   #+BEGIN_SRC cpp
+   void GeoObject::draw() {
+     for (auto f: faces_) {
+       const Vertex& v1 = verts_[std::get<0>(f) - 1];
+       const Vertex& v2 = verts_[std::get<1>(f) - 1];
+       const Vertex& v3 = verts_[std::get<2>(f) - 1];
+
+       glBegin(GL_LINE_LOOP);
+       glVertex3d(std::get<0>(v1), std::get<1>(v1), std::get<2>(v1));
+       glVertex3d(std::get<0>(v2), std::get<1>(v2), std::get<2>(v2));
+       glVertex3d(std::get<0>(v3), std::get<1>(v3), std::get<2>(v3));
+       glEnd();
+     }
+   }
+   #+END_SRC
+* Demos
+  #+CAPTION: Flower mapped to a rectangle
+  [[./img/flower.png]]
+  #+CAPTION: Some morphed textures
+  [[./img/flower_morph1.png]]
+  [[./img/flower_morph2.png]]
+  #+CAPTION: Rotated morphed texture
+  [[./img/flower_rotate.png]]
+  #+CAPTION: Teapot model wireframe
+  [[./img/teapot.png]]
+  #+CAPTION: Teapot model rotated
+  [[./img/teapot_rotate1.png]]
+  [[./img/teapot_rotate2.png]]
+  #+CAPTION: Teapot model zoomed
+  [[./img/teapot_zoom_in.png]]
+  [[./img/teapot_zoom_out.png]]
