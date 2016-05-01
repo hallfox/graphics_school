@@ -75,28 +75,28 @@ void keyboard_handler(unsigned char key, int, int) {
       position += 10;
       break;
     case 'q':
-      bezier[5][dim] += 1.0;
+      bezier[5][dim] += 5.0;
       break;
     case 'a':
-      bezier[5][dim] -= 1.0;
+      bezier[5][dim] -= 5.0;
       break;
     case 'w':
-      bezier[6][dim] += 1.0;
+      bezier[6][dim] += 5.0;
       break;
     case 's':
-      bezier[6][dim] -= 1.0;
+      bezier[6][dim] -= 5.0;
       break;
     case 'e':
-      bezier[9][dim] += 1.0;
+      bezier[9][dim] += 5.0;
       break;
     case 'd':
-      bezier[9][dim] -= 1.0;
+      bezier[9][dim] -= 5.0;
       break;
     case 'r':
-      bezier[10][dim] += 1.0;
+      bezier[10][dim] += 5.0;
       break;
     case 'f':
-      bezier[10][dim] -= 1.0;
+      bezier[10][dim] -= 5.0;
       break;
     case ' ':
       dim = (dim + 1) % 3;
